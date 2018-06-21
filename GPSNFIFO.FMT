@@ -1,0 +1,1123 @@
+                   ;**************************************************************
+                   ;Copyright (c) 2011
+                   ;Title: GPS_Oncore_ctrl
+                   ;Current version: v1r1
+                   ;Function: Control for Oncore GPS receiver to function together
+                   ;   with new electronics from Lago Project.
+                   ;          It comunicates whit GPS receiver at 9600 bps and
+                   ;   writes external registers.
+                   ;
+                   ;Core: KCPSM3 (Spartan3E version)
+                   ;Clock: 50MHz Crystal (Nexys2 clock)
+                   ;Author: Horacio Arnaldi
+                   ;Company: CAB - IB (CNEA)
+                   ;Contact: (+54)-2944-445500
+                   ;e-mail: lharnaldi@cab.cnea.gov.ar
+                   ;Date: 2011-09-18
+                   ;
+                   ;**************************************************************
+                   ;**************************************************************
+                   ; Port definitions
+                   ;**************************************************************
+                   ;
+                   ;
+                   ;
+                   CONSTANT status_port, 40            ;UART and USB status input
+                   CONSTANT tx_half_full, 01           ;  Transmitter     half full - bit0
+                   CONSTANT tx_full, 02                ;    FIFO               full - bit1
+                   CONSTANT rx_data_present, 04        ;  Receiver     data present - bit2
+                   CONSTANT rx_half_full, 08           ;    FIFO          half full - bit3
+                   CONSTANT rx_full, 10                ;                     full - bit4
+                   CONSTANT tx_usb_empty, 20           ; USB FIFO status port  bit5
+                   CONSTANT tx_usb_full, 40            ;                              bit6
+                   CONSTANT spare, 80                  ;                - bit7
+                   ;
+                   ;Ports to write data acquired from GPS receiver
+                   CONSTANT month_port, 00
+                   CONSTANT day_port, 01
+                   CONSTANT year1_port, 02
+                   CONSTANT year2_port, 03
+                   CONSTANT hours_port, 04
+                   CONSTANT minutes_port, 05
+                   CONSTANT seconds_port, 06
+                   CONSTANT fract_sec1_port, 07
+                   CONSTANT fract_sec2_port, 08
+                   CONSTANT fract_sec3_port, 09
+                   CONSTANT fract_sec4_port, 0A
+                   CONSTANT latitude1_port, 0B
+                   CONSTANT latitude2_port, 0C
+                   CONSTANT latitude3_port, 0D
+                   CONSTANT latitude4_port, 0E
+                   CONSTANT longitude1_port, 0F
+                   CONSTANT longitude2_port, 10
+                   CONSTANT longitude3_port, 11
+                   CONSTANT longitude4_port, 12
+                   CONSTANT ellipsoid1_port, 13
+                   CONSTANT ellipsoid2_port, 14
+                   CONSTANT ellipsoid3_port, 15
+                   CONSTANT ellipsoid4_port, 16
+                   CONSTANT velocity1_port, 17
+                   CONSTANT velocity2_port, 18
+                   CONSTANT heading1_port, 19
+                   CONSTANT heading2_port, 1A
+                   CONSTANT geometry2_port, 1B
+                   CONSTANT DOP_type_port, 1C
+                   CONSTANT num_vis_sat_port, 1D
+                   CONSTANT num_track_sat_port, 1E
+                   CONSTANT sat_ID1_port, 1F           ; Sat ID
+                   CONSTANT chtm1_port, 20             ; Channel tracking mode
+                   CONSTANT CNo1_port, 21              ; Carrier to noise density ratio
+                   CONSTANT chsf1_port, 22             ; Channel status flag
+                   CONSTANT sat_ID2_port, 23           ; Sat ID
+                   CONSTANT chtm2_port, 24             ; Channel tracking mode
+                   CONSTANT CNo2_port, 25              ; Carrier to noise density ratio
+                   CONSTANT chsf2_port, 26             ; Channel status flag
+                   CONSTANT sat_ID3_port, 27           ; Sat ID
+                   CONSTANT chtm3_port, 28             ; Channel tracking mode
+                   CONSTANT CNo3_port, 29              ; Carrier to noise density ratio
+                   CONSTANT chsf3_port, 2A             ; Channel status flag
+                   CONSTANT sat_ID4_port, 2B           ; Sat ID
+                   CONSTANT chtm4_port, 2C             ; Channel tracking mode
+                   CONSTANT CNo4_port, 2D              ; Carrier to noise density ratio
+                   CONSTANT chsf4_port, 2E             ; Channel status flag
+                   CONSTANT sat_ID5_port, 2F           ; Sat ID
+                   CONSTANT chtm5_port, 30             ; Channel tracking mode
+                   CONSTANT CNo5_port, 31              ; Carrier to noise density ratio
+                   CONSTANT chsf5_port, 32             ; Channel status flag
+                   CONSTANT sat_ID6_port, 33           ; Sat ID
+                   CONSTANT chtm6_port, 34             ; Channel tracking mode
+                   CONSTANT CNo6_port, 35              ; Carrier to noise density ratio
+                   CONSTANT chsf6_port, 36             ; Channel status flag
+                   CONSTANT sat_ID7_port, 37           ; Sat ID
+                   CONSTANT chtm7_port, 38             ; Channel tracking mode
+                   CONSTANT CNo7_port, 39              ; Carrier to noise density ratio
+                   CONSTANT chsf7_port, 3A             ; Channel status flag
+                   CONSTANT sat_ID8_port, 3B           ; Sat ID
+                   CONSTANT chtm8_port, 3C             ; Channel tracking mode
+                   CONSTANT CNo8_port, 3D              ; Carrier to noise density ratio
+                   CONSTANT chsf8_port, 3E             ; Channel status flag
+                   CONSTANT rsf_port, 3F               ; Reciver status flag
+                   ;
+                   CONSTANT UART_read_port, 80         ;UART Rx data input
+                   ;
+                   CONSTANT UART_write_port, C0        ;UART Tx data output
+                   ;
+                   ;CONSTANT USB_write_port,   40
+                   ;
+                   ;
+                   ;***************************************************************
+                   ;data constants
+                   ;***************************************************************
+                   ;
+                   CONSTANT delay_1us_constant, 0B
+                   ;
+                   CONSTANT CMD_MASK, E0
+                   CONSTANT STATUS_MASK, 1F
+                   CONSTANT CLR_XCLR_MASK, FB
+                   ;
+                   ;
+                   ;**************************************************************************************
+                   ; Special Register usage
+                   ;**************************************************************************************
+                   ;
+                   NAMEREG sF, UART_data               ;used to pass data to and from the UART
+                   NAMEREG s5, USB_data                ;used to pass data to the USB
+                   NAMEREG s6, USB_port                ;used to pass data to the USB
+                   ;
+                   ;
+                   ;
+                   ;**************************************************************************************
+                   ;Scratch Pad Memory Locations
+                   ;**************************************************************************************
+                   ;
+                   ;Values read from receiver
+                   ;
+                   CONSTANT month, 00
+                   CONSTANT day, 01
+                   CONSTANT year1, 02
+                   CONSTANT year2, 03
+                   CONSTANT hours, 04
+                   CONSTANT minutes, 05
+                   CONSTANT seconds, 06
+                   CONSTANT fract_sec1, 07
+                   CONSTANT fract_sec2, 08
+                   CONSTANT fract_sec3, 09
+                   CONSTANT fract_sec4, 0A
+                   CONSTANT latitude1, 0B
+                   CONSTANT latitude2, 0C
+                   CONSTANT latitude3, 0D
+                   CONSTANT latitude4, 0E
+                   CONSTANT longitude1, 0F
+                   CONSTANT longitude2, 10
+                   CONSTANT longitude3, 11
+                   CONSTANT longitude4, 12
+                   CONSTANT ellipsoid1, 13
+                   CONSTANT ellipsoid2, 14
+                   CONSTANT ellipsoid3, 15
+                   CONSTANT ellipsoid4, 16
+                   CONSTANT velocity1, 17
+                   CONSTANT velocity2, 18
+                   CONSTANT heading1, 19
+                   CONSTANT heading2, 1A
+                   CONSTANT geometry2, 1B
+                   CONSTANT DOP_type, 1C
+                   CONSTANT num_vis_sat, 1D
+                   CONSTANT num_track_sat, 1E
+                   CONSTANT sat_ID1, 1F                ; Sat ID
+                   CONSTANT chtm1, 20                  ; Channel tracking mode
+                   CONSTANT CNo1, 21                   ; Carrier to noise density ratio
+                   CONSTANT chsf1, 22                  ; Channel status flag
+                   CONSTANT sat_ID2, 23                ; Sat ID
+                   CONSTANT chtm2, 24                  ; Channel tracking mode
+                   CONSTANT CNo2, 25                   ; Carrier to noise density ratio
+                   CONSTANT chsf2, 26                  ; Channel status flag
+                   CONSTANT sat_ID3, 27                ; Sat ID
+                   CONSTANT chtm3, 28                  ; Channel tracking mode
+                   CONSTANT CNo3, 29                   ; Carrier to noise density ratio
+                   CONSTANT chsf3, 2A                  ; Channel status flag
+                   CONSTANT sat_ID4, 2B                ; Sat ID
+                   CONSTANT chtm4, 2C                  ; Channel tracking mode
+                   CONSTANT CNo4, 2D                   ; Carrier to noise density ratio
+                   CONSTANT chsf4, 2E                  ; Channel status flag
+                   CONSTANT sat_ID5, 2F                ; Sat ID
+                   CONSTANT chtm5, 30                  ; Channel tracking mode
+                   CONSTANT CNo5, 31                   ; Carrier to noise density ratio
+                   CONSTANT chsf5, 32                  ; Channel status flag
+                   CONSTANT sat_ID6, 33                ; Sat ID
+                   CONSTANT chtm6, 34                  ; Channel tracking mode
+                   CONSTANT CNo6, 35                   ; Carrier to noise density ratio
+                   CONSTANT chsf6, 36                  ; Channel status flag
+                   CONSTANT sat_ID7, 37                ; Sat ID
+                   CONSTANT chtm7, 38                  ; Channel tracking mode
+                   CONSTANT CNo7, 39                   ; Carrier to noise density ratio
+                   CONSTANT chsf7, 3A                  ; Channel status flag
+                   CONSTANT sat_ID8, 3B                ; Sat ID
+                   CONSTANT chtm8, 3C                  ; Channel tracking mode
+                   CONSTANT CNo8, 3D                   ; Carrier to noise density ratio
+                   CONSTANT chsf8, 3E                  ; Channel status flag
+                   CONSTANT rsf, 3F                    ; Reciver status flag
+                   ;
+                   ;
+                   ;**************************************************************************************
+                   ;Useful data constants
+                   ;**************************************************************************************
+                   ;
+                   ;
+                   ;ASCII table
+                   ;
+                   CONSTANT character_a, 61
+                   CONSTANT character_b, 62
+                   CONSTANT character_c, 63
+                   CONSTANT character_d, 64
+                   CONSTANT character_e, 65
+                   CONSTANT character_f, 66
+                   CONSTANT character_g, 67
+                   CONSTANT character_h, 68
+                   CONSTANT character_i, 69
+                   CONSTANT character_j, 6A
+                   CONSTANT character_k, 6B
+                   CONSTANT character_l, 6C
+                   CONSTANT character_m, 6D
+                   CONSTANT character_n, 6E
+                   CONSTANT character_o, 6F
+                   CONSTANT character_p, 70
+                   CONSTANT character_q, 71
+                   CONSTANT character_r, 72
+                   CONSTANT character_s, 73
+                   CONSTANT character_t, 74
+                   CONSTANT character_u, 75
+                   CONSTANT character_v, 76
+                   CONSTANT character_w, 77
+                   CONSTANT character_x, 78
+                   CONSTANT character_y, 79
+                   CONSTANT character_z, 7A
+                   CONSTANT character_A, 41
+                   CONSTANT character_B, 42
+                   CONSTANT character_C, 43
+                   CONSTANT character_D, 44
+                   CONSTANT character_E, 45
+                   CONSTANT character_F, 46
+                   CONSTANT character_G, 47
+                   CONSTANT character_H, 48
+                   CONSTANT character_I, 49
+                   CONSTANT character_J, 4A
+                   CONSTANT character_K, 4B
+                   CONSTANT character_L, 4C
+                   CONSTANT character_M, 4D
+                   CONSTANT character_N, 4E
+                   CONSTANT character_O, 4F
+                   CONSTANT character_P, 50
+                   CONSTANT character_Q, 51
+                   CONSTANT character_R, 52
+                   CONSTANT character_S, 53
+                   CONSTANT character_T, 54
+                   CONSTANT character_U, 55
+                   CONSTANT character_V, 56
+                   CONSTANT character_W, 57
+                   CONSTANT character_X, 58
+                   CONSTANT character_Y, 59
+                   CONSTANT character_Z, 5A
+                   CONSTANT character_0, 30
+                   CONSTANT character_1, 31
+                   CONSTANT character_2, 32
+                   CONSTANT character_3, 33
+                   CONSTANT character_4, 34
+                   CONSTANT character_5, 35
+                   CONSTANT character_6, 36
+                   CONSTANT character_7, 37
+                   CONSTANT character_8, 38
+                   CONSTANT character_9, 39
+                   CONSTANT character_arroba, 40       ;'@'
+                   CONSTANT character_CR, 0D           ;carriage return
+                   CONSTANT character_LF, 0A           ;line feed
+                   CONSTANT character_colon, 3A
+                   CONSTANT character_stop, 2E
+                   CONSTANT character_semi_colon, 3B
+                   CONSTANT character_minus, 2D
+                   CONSTANT character_divide, 2F       ;'/'
+                   CONSTANT character_plus, 2B
+                   CONSTANT character_comma, 2C
+                   CONSTANT character_less_than, 3C
+                   CONSTANT character_greater_than, 3E
+                   CONSTANT character_equals, 3D
+                   CONSTANT character_space, 20
+                   CONSTANT character_question, 3F     ;'?'
+                   CONSTANT character_dollar, 24
+                   CONSTANT character_exclaim, 21      ;'!'
+                   CONSTANT character_BS, 08           ;Back Space command character
+                   CONSTANT character_underscore, 5F   ;_
+                   ;
+                   ;
+                   ;
+                   ;***************************************************************
+                   ;Initialise the system
+                   ;***************************************************************
+                   ; Send command to set receiver to send every second status
+                   ; data
+       cold_start: CALL delay_20ms                     ;initial delay
+                   CALL delay_20ms                     ;5 x 20ms = 100ms
+                   CALL delay_20ms
+                   CALL delay_20ms                     ;
+                   CALL delay_20ms
+                   CALL mess_PSD                       ; Set data output for 1s
+                   ;          ;repetition
+                   CALL mess_TRAIM                     ; Set 1PPS signal
+                   CALL mess_PPSOFF                    ; Set 1PPS Offset
+                   CALL mess_PPSCD                     ; Set 1PPS Cable Delay
+                   CALL mess_PM                        ; Set Pulse Mode
+                   CALL mess_GMTOFF                    ; Set GMT Offset
+                   CALL mess_TM                        ; Set Time Mode
+                   ;
+                   ;
+                   ;***************************************************************
+                   ;main program
+                   ;***************************************************************
+                   ; It wait for a new data, save data into scratch pad memory
+                   ; and then writes it into external FIFO if it is empty else
+                   ; wait for an empty condition.
+                   ;
+             loop: CALL read_char
+                   COMPARE s0, character_arroba        ; command init (@)
+                   JUMP NZ, loop
+                   CALL read_char                      ; read next character
+                   COMPARE s0, character_arroba        ; command test
+                   JUMP NZ, loop
+                   CALL read_char                      ; read next character
+                   COMPARE s0, character_E             ; command test
+                   JUMP NZ, loop
+                   CALL read_char                      ; read next character
+                   COMPARE s0, character_a             ; command test
+                   JUMP NZ, loop
+                   CALL read_char
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, month_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, day_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, year1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, year2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, hours_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, minutes_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, seconds_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, fract_sec1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, fract_sec2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, fract_sec3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, fract_sec4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, latitude1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, latitude2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, latitude3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, latitude4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, longitude1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, longitude2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, longitude3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, longitude4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, ellipsoid1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, ellipsoid2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, ellipsoid3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, ellipsoid4_port
+                   CALL USB_write
+                   CALL read_char                      ; The nexy four characters are
+                   CALL read_char                      ; not used, so we just read
+                   CALL read_char                      ; them but not save.
+                   CALL read_char                      ; read next character
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, velocity1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, velocity2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, heading1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, heading2_port
+                   CALL USB_write
+                   CALL read_char                      ; This character is disregarded
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, geometry2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, DOP_type_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, num_vis_sat_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, num_track_sat_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf1_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf2_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf3_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo4_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   STORE s0, chsf4                     ; save data
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID5_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm5_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo5_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf5_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID6_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm6_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo6_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf6_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID7_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm7_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo7_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf7_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, sat_ID8_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chtm8_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, CNo8_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, chsf8_port
+                   CALL USB_write
+                   CALL read_char                      ; read next character
+                   LOAD USB_data, s0                   ; read next character
+                   LOAD USB_port, rsf_port
+                   CALL USB_write
+                   CALL read_char                      ; read checksum character
+                   CALL read_char                      ; read CR character
+                   COMPARE s0, character_CR
+                   JUMP NZ, loop                       ; return to loop if not CR
+                   CALL read_char                      ; read LF character
+                   COMPARE s0, character_LF
+                   JUMP NZ, loop                       ; return to loop if not LF
+                   JUMP loop                           ; Try again!
+                   ;
+                   ;
+        read_char: CALL read_from_UART
+                   LOAD s0, UART_data
+                   RETURN
+                   ;
+                   ;
+        USB_write: OUTPUT USB_data, (USB_port)
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;***********************************************************
+                   ; Software delay Routines
+                   ;***********************************************************
+                   ;
+                   ; Delay of 1us.
+                   ;
+                   ; Constant value defines reflects the clock applied to KCPSM3. Every instruction
+                   ; executes in 2 clock cycles making the calculation highly predictable. The '6' in
+                   ; the following equation even allows for 'CALL delay_1us' instruction in the initiating code.
+                   ;
+                   ; delay_1us_constant =  (clock_rate - 6)/4       Where 'clock_rate' is in MHz
+                   ;
+                   ; Register used sA
+                   ;
+        delay_1us: LOAD sA, delay_1us_constant
+         wait_1us: SUB sA, 01
+                   JUMP NZ, wait_1us
+                   RETURN
+                   ;
+                   ; Delay of 10 us
+                   ;
+                   ; Registers used sA, sB
+                   ;
+       delay_10us: LOAD sB, 0A                         ;10 x 1us = 10us
+        wait_10us: CALL delay_1us
+                   SUB sB, 01
+                   JUMP NZ, wait_10us
+                   RETURN
+                   ;
+                   ; Delay of 40us.
+                   ;
+                   ; Registers used sA, sB
+                   ;
+       delay_40us: LOAD sB, 28                         ;40 x 1us = 40us
+        wait_40us: CALL delay_1us
+                   SUB sB, 01
+                   JUMP NZ, wait_40us
+                   RETURN
+                   ;
+                   ;
+                   ; Delay of 1ms.
+                   ;
+                   ; Registers used sA, sB, sC
+                   ;
+        delay_1ms: LOAD sC, 19                         ;25 x 40us = 1ms
+         wait_1ms: CALL delay_40us
+                   SUB sC, 01
+                   JUMP NZ, wait_1ms
+                   RETURN
+                   ;
+                   ; Delay of 20ms.
+                   ;
+                   ; Registers used sA, sB, sC, sD
+                   ;
+       delay_20ms: LOAD sD, 14                         ;20 x 1ms = 20ms
+        wait_20ms: CALL delay_1ms
+                   SUB sD, 01
+                   JUMP NZ, wait_20ms
+                   RETURN
+                   ;
+                   ; Delay of approximately 1 second.
+                   ;
+                   ; Registers used sA, sB, sC, sD, sE
+                   ;
+         delay_1s: LOAD sE, 14                         ;50 x 20ms = 1000ms
+          wait_1s: CALL delay_20ms
+                   SUB sE, 01
+                   JUMP NZ, wait_1s
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;***********************************************************
+                   ;UART communication routines
+                   ;***********************************************************
+                   ;
+                   ;Read one character from the UART
+                   ;
+                   ;Character read will be returned in a register called 'UART_data'.
+                   ;
+                   ;The routine first tests the receiver FIFO buffer to see if data is present.
+                   ;If the FIFO is empty, the routine waits until there is a character to read.
+                   ;As this could take any amount of time the wait loop could include a call to a
+                   ;subroutine which performs a useful function.
+                   ;
+                   ;
+                   ;
+                   ;Registers used s0 and UART_data
+                   ;
+   read_from_UART: INPUT s0, status_port               ;test Rx_FIFO buffer
+                   TEST s0, rx_data_present            ;wait if empty
+                   JUMP NZ, read_character
+                   JUMP read_from_UART
+   read_character: INPUT UART_data, UART_read_port     ;read from FIFO
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;
+                   ;Transmit one character to the UART
+                   ;
+                   ;Character supplied in register called 'UART_data'.
+                   ;
+                   ;The routine first tests the transmit FIFO buffer is empty.
+                   ;If the FIFO currently has any data, the routine waits until it is empty.
+                   ;Ultimately this means that only one character is sent at a time which
+                   ;could be important if the PC at the other end of the link transmits
+                   ;an XOFF and needs the flow of data to terminate as soon as possible.
+                   ;
+                   ;Registers used s0
+                   ;
+     send_to_UART: INPUT s0, status_port               ;test Tx_FIFO buffer
+                   TEST s0, tx_full
+                   JUMP Z, UART_write
+                   JUMP send_to_UART
+       UART_write: OUTPUT UART_data, UART_write_port
+                   RETURN
+                   ;
+                   ;Convert value provided in register s0 into ASCII characters
+                   ;
+                   ;The value provided must in the range 0 to 99 and will be converted into
+                   ;two ASCII characters.
+                   ;     The number of 'tens' will be represented by an ASCII character returned in register s1.
+                   ;     The number of 'units' will be represented by an ASCII character returned in register s0.
+                   ;
+                   ;The ASCII representations of '0' to '9' are 30 to 39 hexadecimal which is simply 30 hex added to
+                   ;the actual decimal value.
+                   ;
+                   ;Registers used s0 and s1.
+                   ;
+ decimal_to_ASCII: LOAD s1, 30                         ;load 'tens' counter with ASCII for '0'
+     test_for_ten: ADD s1, 01                          ;increment 'tens' value
+                   SUB s0, 0A                          ;try to subtract 10 from the supplied value
+                   JUMP NC, test_for_ten               ;repeat if subtraction was possible without underflow.
+                   SUB s1, 01                          ;'tens' value one less ten due to underflow
+                   ADD s0, 3A                          ;restore units value (the remainder) and convert to ASCII
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;Convert character to upper case
+                   ;
+                   ;The character supplied in register s0.
+                   ;If the character is in the range 'a' to 'z', it is converted
+                   ;to the equivalent upper case character in the range 'A' to 'Z'.
+                   ;All other characters remain unchanged.
+                   ;
+                   ;Registers used s0.
+                   ;
+       upper_case: COMPARE s0, 61                      ;eliminate character codes below 'a' (61 hex)
+                   RETURN C
+                   COMPARE s0, 7B                      ;eliminate character codes above 'z' (7A hex)
+                   RETURN NC
+                   AND s0, DF                          ;mask bit5 to convert to upper case
+                   RETURN
+                   ;
+                   ;
+                   ;Convert character '0' to '9' to numerical value in range 0 to 9
+                   ;
+                   ;The character supplied in register s0. If the character is in the
+                   ;range '0' to '9', it is converted to the equivalent decimal value.
+                   ;Characters not in the range '0' to '9' are signified by the return
+                   ;with the CARRY flag set.
+                   ;
+                   ;Registers used s0.
+                   ;
+   1char_to_value: ADD s0, C6                          ;reject character codes above '9' (39 hex)
+                   RETURN C                            ;carry flag is set
+                   SUB s0, F6                          ;reject character codes below '0' (30 hex)
+                   RETURN                              ;carry is set if value not in range
+                   ;
+                   ;
+                   ;Determine the numerical value of a two character decimal string held in
+                   ;scratch pad memory such the result is in the range 0 to 99 (00 to 63 hex).
+                   ;
+                   ;The string must be stored in two consecutive memory locations and the
+                   ;location of the first (tens) character supplied in the s1 register.
+                   ;The result is provided in register s2. Strings not using characters in the
+                   ;range '0' to '9' are signified by the return with the CARRY flag set.
+                   ;
+                   ;Registers used s0, s1 and s2.
+                   ;
+   2char_to_value: FETCH s0, (s1)                      ;read 'tens' character
+                   CALL 1char_to_value                 ;convert to numerical value
+                   RETURN C                            ;bad character - CARRY set
+                   LOAD s2, s0
+                   SL0 s2                              ;multiply 'tens' value by 10 (0A hex)
+                   SL0 s2
+                   ADD s2, s0
+                   SL0 s2
+                   ADD s1, 01                          ;read 'units' character
+                   FETCH s0, (s1)
+                   CALL 1char_to_value                 ;convert to numerical value
+                   RETURN C                            ;bad character - CARRY set
+                   ADD s2, s0                          ;add units to result and clear CARRY flag
+                   RETURN
+                   ;
+                   ;
+                   ;Convert hexadecimal value provided in register s0 into ASCII characters
+                   ;
+                   ;The value provided must be any value in the range 00 to FF and will be converted into
+                   ;two ASCII characters.
+                   ;     The upper nibble will be represented by an ASCII character returned in register s2.
+                   ;     The lower nibble will be represented by an ASCII character returned in register s1.
+                   ;
+                   ;The ASCII representations of '0' to '9' are 30 to 39 hexadecimal which is simply 30 hex
+                   ;added to the actual decimal value. The ASCII representations of 'A' to 'F' are 41 to 46
+                   ;hexadecimal requiring a further addition of 07 to the 30 already added.
+                   ;
+                   ;Registers used s0, s1 and s2.
+                   ;
+hex_byte_to_ASCII: LOAD s1, s0                         ;remember value supplied
+                   SR0 s0                              ;isolate upper nibble
+                   SR0 s0
+                   SR0 s0
+                   SR0 s0
+                   CALL hex_to_ASCII                   ;convert
+                   LOAD s2, s0                         ;upper nibble value in s2
+                   LOAD s0, s1                         ;restore complete value
+                   AND s0, 0F                          ;isolate lower nibble
+                   CALL hex_to_ASCII                   ;convert
+                   LOAD s1, s0                         ;lower nibble value in s1
+                   RETURN
+                   ;
+                   ;Convert hexadecimal value provided in register s0 into ASCII character
+                   ;
+                   ;Register used s0
+                   ;
+     hex_to_ASCII: SUB s0, 0A                          ;test if value is in range 0 to 9
+                   JUMP C, number_char
+                   ADD s0, 07                          ;ASCII char A to F in range 41 to 46
+      number_char: ADD s0, 3A                          ;ASCII char 0 to 9 in range 30 to 40
+                   RETURN
+                   ;
+                   ;
+                   ;Send the two character HEX value of the register contents 's0' to the UART
+                   ;
+                   ;Registers used s0, s1, s2
+                   ;
+    send_hex_byte: CALL hex_byte_to_ASCII
+                   LOAD UART_data, s2
+                   CALL send_to_UART
+                   LOAD UART_data, s1
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;Send the four character HEX value of the register contents [s9, s8] to the UART
+                   ;
+                   ;Registers used s0, s9, s8
+                   ;
+  send_hex_2bytes: LOAD s0, s9
+                   CALL send_hex_byte
+                   LOAD s0, s8
+                   CALL send_hex_byte
+                   RETURN
+                   ;
+                   ;
+                   ;Convert the HEX ASCII characters contained in 's3' and 's2' into
+                   ;an equivalent hexadecimal value in register 's0'.
+                   ;     The upper nibble is represented by an ASCII character in register s3.
+                   ;     The lower nibble is represented by an ASCII character in register s2.
+                   ;
+                   ;Input characters must be in the range 00 to FF hexadecimal or the CARRY flag
+                   ;will be set on return.
+                   ;
+                   ;Registers used s0, s2 and s3.
+                   ;
+ASCII_byte_to_hex: LOAD s0, s3                         ;Take upper nibble
+                   CALL ASCII_to_hex                   ;convert to value
+                   RETURN C                            ;reject if out of range
+                   LOAD s3, s0                         ;remember value
+                   SL0 s3                              ;multiply value by 16 to put in upper nibble
+                   SL0 s3
+                   SL0 s3
+                   SL0 s3
+                   LOAD s0, s2                         ;Take lower nibble
+                   CALL ASCII_to_hex                   ;convert to value
+                   RETURN C                            ;reject if out of range
+                   OR s0, s3                           ;merge in the upper nibble with CARRY reset
+                   RETURN
+                   ;
+                   ;
+                   ;Routine to convert ASCII data in 's0' to an equivalent HEX value.
+                   ;
+                   ;If character is not valid for hex, then CARRY is set on return.
+                   ;
+                   ;Register used s0
+                   ;
+     ASCII_to_hex: ADD s0, B9                          ;test for above ASCII code 46 ('F')
+                   RETURN C
+                   SUB s0, E9                          ;normalise 0 to 9 with A-F in 11 to 16 hex
+                   RETURN C                            ;reject below ASCII code 30 ('0')
+                   SUB s0, 11                          ;isolate A-F down to 00 to 05 hex
+                   JUMP NC, ASCII_letter
+                   ADD s0, 07                          ;test for above ASCII code 46 ('F')
+                   RETURN C
+                   SUB s0, F6                          ;convert to range 00 to 09
+                   RETURN
+     ASCII_letter: ADD s0, 0A                          ;convert to range 0A to 0F
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ;Send Carriage Return to the UART
+                   ;
+          send_CR: LOAD UART_data, character_CR
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;Send a space to the UART
+                   ;
+       send_space: LOAD UART_data, character_space
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;
+                   ;****************************************************************
+                   ;Text messages
+                   ;****************************************************************
+                   ;
+                   ; Position/Status/Data message
+                   ; Send @@Ea01C<CR><LF>
+                   ; 01 is for setting the response mode (once per second)
+                   ; C is checksum for this message (25 hex)
+                   ;
+         mess_PSD: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_E
+                   CALL send_to_UART
+                   LOAD UART_data, character_a
+                   CALL send_to_UART
+                   LOAD UART_data, 01
+                   CALL send_to_UART
+                   LOAD UART_data, 25
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; Time Raim Setup and Status Message (page 94 of man)
+                   ; Send @@En000000030100000100000000000000C<CR><LF>
+                   ; 03 is for Time RAIM Algoritm (3..65535)
+                   ; 01 is for setting (enable every time) the 1PPS signal
+                   ; C is checksum for this message (28 hex)
+                   ;
+       mess_TRAIM: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_E
+                   CALL send_to_UART
+                   LOAD UART_data, character_n
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 03
+                   CALL send_to_UART
+                   LOAD UART_data, 01
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 01
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 28                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ;
+                   ; 1PPS Offset message
+                   ; Send @@Ay00000000C<CR><LF>
+                   ;
+                   ; C is checksum for this message (38 hex)
+                   ;
+      mess_PPSOFF: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_A
+                   CALL send_to_UART
+                   LOAD UART_data, character_y
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 38                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; 1PPS Cable delay message
+                   ; Send @@Az00000000C<CR><LF>
+                   ;
+                   ; C is checksum for this message (3B hex)
+                   ;
+       mess_PPSCD: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_A
+                   CALL send_to_UART
+                   LOAD UART_data, character_z
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 3B                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; Pulse Mode message
+                   ; Send @@AP00C<CR><LF>
+                   ;
+                   ; C is checksum for this message (11 hex)
+                   ;
+          mess_PM: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_A
+                   CALL send_to_UART
+                   LOAD UART_data, character_P
+                   CALL send_to_UART
+                   CALL send_zero
+                   LOAD UART_data, 11                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; GMT Offset message
+                   ; Send @@Ab000000C<CR><LF>
+                   ;
+                   ; C is checksum for this message (23 hex)
+                   ;
+      mess_GMTOFF: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_A
+                   CALL send_to_UART
+                   LOAD UART_data, character_b
+                   CALL send_to_UART
+                   CALL send_zero
+                   CALL send_zero
+                   CALL send_zero
+                   LOAD UART_data, 23                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; Time Mode message
+                   ; Send @@Aw01C<CR><LF>
+                   ;
+                   ; C is checksum for this message (37 hex)
+                   ;
+          mess_TM: CALL send_arroba
+                   CALL send_arroba
+                   LOAD UART_data, character_A
+                   CALL send_to_UART
+                   LOAD UART_data, character_w
+                   CALL send_to_UART
+                   LOAD UART_data, 01
+                   CALL send_to_UART
+                   LOAD UART_data, 37                  ; Checksum
+                   CALL send_to_UART
+                   CALL send_EOM
+                   RETURN
+                   ;
+                   ;
+                   ; EOM End Of Message
+                   ;
+         send_EOM: LOAD UART_data, character_CR
+                   CALL send_to_UART
+                   LOAD UART_data, character_LF
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;
+      send_arroba: LOAD UART_data, character_arroba
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;
+        send_zero: LOAD UART_data, 00
+                   CALL send_to_UART
+                   RETURN
+                   ;
+                   ;
+                   ;**************************************************************************************
+                   ; Interrupt Service Routine (ISR)
+                   ;**************************************************************************************
+                   ;
+                   ; Interrupts are not used in this design. This is a place keeper only.
+                   ;
+                   ADDRESS 3FE
+              ISR: RETURNI ENABLE
+                   ;
+                   ;
+                   ;**************************************************************************************
+                   ; Interrupt Vector
+                   ;**************************************************************************************
+                   ;
+                   ADDRESS 3FF
+                   JUMP ISR
+                   ;
+                   ;

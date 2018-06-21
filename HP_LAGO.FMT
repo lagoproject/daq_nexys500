@@ -1,0 +1,735 @@
+                  ;***********************************************************
+                  ;copyright (c) 2011
+                  ;Title: HP03 simple example based on PicoBlaze MCU
+                  ;Current version: v1r2
+                  ;Function: Calculate pressure, altitude and temperature
+                  ;Core: KCPSM3 (Spartan3E version)
+                  ;Clock: 50MHz Crystal (Nexys2 clock)
+                  ;Author: Horacio Arnaldi
+                  ;Company: CAB - IB (CNEA)
+                  ;Contact: (+54)-2944-445500
+                  ;e-mail: lharnaldi@cab.cnea.gov.ar
+                  ;Date: 2011-05-23 v1r1
+                  ;    2011-09-14 v1r2
+                  ;
+                  ;***********************************************************
+                  ;
+                  ;***********************************************************
+                  ;Routine declarations
+                  ;***********************************************************
+                  ; IIC_ReadCalData                          ;
+                  ; ReadTPAD
+                  ; Read_Tempreture
+                  ; Read_Pressure
+                  ; CalculatePressTemp
+                  ; CalculateAltitude
+                  ; IIC_ReadByte
+                  ; IIC_WriteByte
+                  ; IIC_Start
+                  ; IIC_Stop
+                  ; IIC_ACK
+                  ; IIC_NoAck
+                  ; IIC_SDA_HIGH
+                  ; IIC_SDA_LOW
+                  ; IIC_SCL_HIGH
+                  ; IIC_SCL_LOW
+                  ; IIC_XCLR_LOW
+                  ; IIC_XCLR_HIGH
+                  ;
+                  ;***************************************************
+                  ;port definitions
+                  ;***************************************************
+                  CONSTANT C1_msb_port, 01        ;
+                  CONSTANT C1_lsb_port, 02        ;
+                  CONSTANT C2_msb_port, 03        ;
+                  CONSTANT C2_lsb_port, 04        ;
+                  CONSTANT C3_msb_port, 05        ;
+                  CONSTANT C3_lsb_port, 06        ;
+                  CONSTANT C4_msb_port, 07        ;
+                  CONSTANT C4_lsb_port, 08        ;
+                  CONSTANT C5_msb_port, 09        ;
+                  CONSTANT C5_lsb_port, 0A        ;
+                  CONSTANT C6_lsb_port, 0B        ;
+                  CONSTANT C6_msb_port, 0C        ;
+                  CONSTANT C7_lsb_port, 0D        ;
+                  CONSTANT C7_msb_port, 0E        ;
+                  CONSTANT A_port, 0F             ;
+                  CONSTANT B_port, 10             ;
+                  CONSTANT C_port, 11             ;
+                  CONSTANT D_port, 12             ;
+                  CONSTANT D1_msb_port, 13        ;
+                  CONSTANT D1_lsb_port, 14        ;
+                  CONSTANT D2_msb_port, 15        ;
+                  CONSTANT D2_lsb_port, 16        ;
+                  ;
+                  CONSTANT IIC_in_port, 20        ; Read signal from HP03 device
+                  CONSTANT IIC_out_port, 40       ; Drive signal to HP03 device (open collector)
+                  CONSTANT SDA_wire, 01           ;       Signal is bit0 in both cases
+                  CONSTANT SCL_wire, 02
+                  CONSTANT XCLR, 04
+                  ;
+                  ;
+                  ;**************************************************************************************
+                  ; Special Register usage
+                  ;**************************************************************************************
+                  ;
+                  NAMEREG sF, UART_data           ;used to pass data to and from the UART
+                  ;
+                  ;
+                  ;
+                  ;**************************************************
+                  ;scratch pad memory locations
+                  ;**************************************************
+                  ;Values read from EEPROM
+                  ;Compensations coefficients and ADC values
+                  ;
+                  CONSTANT C1_msb, 00             ;Sensitivity coefficient
+                  CONSTANT C1_lsb, 01
+                  CONSTANT C2_msb, 02             ;Offset coefficient
+                  CONSTANT C2_lsb, 03
+                  CONSTANT C3_msb, 04             ;Temperature Coefficient of Sensitivity
+                  CONSTANT C3_lsb, 05
+                  CONSTANT C4_msb, 06             ;Temperature Coefficient of Offset
+                  CONSTANT C4_lsb, 07
+                  CONSTANT C5_msb, 08             ;Reference Temperature
+                  CONSTANT C5_lsb, 09
+                  CONSTANT C6_msb, 0A             ;Temperature Coefficient of Temperature
+                  CONSTANT C6_lsb, 0B
+                  CONSTANT C7_msb, 0C             ;Offset Fine Tuning
+                  CONSTANT C7_lsb, 0D
+                  CONSTANT A_A, 0E                ;Sensor Specific Parameter
+                  CONSTANT B_B, 0F                ;Sensor Specific Parameter
+                  CONSTANT C_C, 10                ;Sensor Specific Parameter
+                  CONSTANT D_D, 11                ;Sensor Specific Parameter
+                  CONSTANT D1_msb, 12             ;ADC pressure measured MSB and LSB
+                  CONSTANT D1_lsb, 13             ;
+                  CONSTANT D2_msb, 14             ;ADC temperature meassured MSB and LSB
+                  CONSTANT D2_lsb, 15             ;
+                  ;
+                  CONSTANT IIC_control_status, 16 ;control status bits
+                  ;
+                  ;***************************************************
+                  ;data constants
+                  ;***************************************************
+                  ;chip addresses
+                  CONSTANT eeprom_addr_A0, A0
+                  CONSTANT eeprom_addr_A1, A1
+                  CONSTANT eeprom_start_addr, 10
+                  CONSTANT AD_addr_EE, EE
+                  CONSTANT AD_addr_FF, FF
+                  CONSTANT AD_addr_F0, F0
+                  CONSTANT AD_addr_E8, E8
+                  CONSTANT AD_addr_FD, FD
+                  CONSTANT AD_addr_EF, EF
+                  ;
+                  CONSTANT delay_1us_constant, 0B
+                  ;
+                  CONSTANT CLR_SCL_MASK, FD
+                  CONSTANT CLR_SDA_MASK, FE
+                  CONSTANT CLR_XCLR_MASK, FB
+                  ;
+                  ;*******************************************************************
+                  ;main program
+                  ;*******************************************************************
+                  ; It is in an infinity loop.
+                  ; Read constants, send them just once, read ADC values,
+                  ; wait a minute and read ADC values again and so on.
+                  ; It continuoulsy update external registers to be read from
+                  ; other logic.
+                  ;******************************************************************
+      cold_start: CALL IIC_init
+                  CALL delay_20ms                 ;initial delay
+                  CALL delay_20ms
+                  CALL delay_20ms
+                  CALL delay_20ms
+                  CALL delay_20ms
+                  CALL IIC_ReadCalData            ;read calibration data
+                  ;
+                  ;
+                  ;Main loop
+                  ;
+      warm_start: CALL send_constants             ; first of all, send constants
+            loop: CALL read_PTADC                 ; read AD values
+                  CALL delay_1s                   ; wait for 10 seconds
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  CALL delay_1s
+                  JUMP loop                       ; do it again!
+                  ;
+                  ;
+                  ;
+                  ;***********************************************************
+                  ; Initialize IIC bus
+                  ;***********************************************************
+                  ;
+                  ;This routine should be used to initialise the IIC bus.
+                  ;The SCL clock is made high.
+                  ;Device selections are made inactive as follows
+                  ;   SDA      = 1
+                  ;   SCL      = 1
+                  ;   XCLR     = 0          Initially low
+                  ;
+                  ;
+        IIC_init: LOAD s0, 03                     ;normally 03
+                  OUTPUT s0, IIC_out_port
+                  STORE s0, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;routine: IIC_ReadCalData
+                  ;    function: read calibration data from eeprom chip
+                  ;    output register:
+                  ;
+                  ;    temp register: s0
+                  ;*******************************************************************
+                  ;
+                  ;
+ IIC_ReadCalData: CALL IIC_Start                  ;perform a start condition
+                  LOAD s0, eeprom_addr_A0
+                  CALL IIC_WriteByte
+                  LOAD s0, eeprom_start_addr
+                  CALL IIC_WriteByte
+                  CALL IIC_Start
+                  LOAD s0, eeprom_addr_A1
+                  CALL IIC_WriteByte
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C1_msb                ;save C1 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C1_lsb                ;save C1 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C2_msb                ;save C2 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C2_lsb                ;save C2 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C3_msb                ;save C3 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C3_lsb                ;save C3 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C4_msb                ;save C4 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C4_lsb                ;save C4 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C5_msb                ;save C5 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C5_lsb                ;save C5 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C6_msb                ;save C6 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C6_lsb                ;save C6 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C7_msb                ;save C7 msb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C7_lsb                ;save C7 lsb to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, A_A                   ;save A_A to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, B_B                   ;save B_B to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, C_C                   ;save C_C to mem
+                  CALL IIC_ACK
+                  ;
+                  CALL IIC_ReadByte
+                  STORE s0, D_D                   ;save D_D to mem
+                  CALL IIC_NoACK                  ;no ack
+                  CALL IIC_Stop                   ;stop receibing data
+                  ;
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: ReadPTADC
+                  ;    Function: Read D1 and D2 from HP03
+                  ;    Input regicter:
+                  ;    Output register:
+                  ;*******************************************************************
+                  ;
+      read_PTADC: CALL IIC_XCLR_HIGH              ;set XCLR
+                  CALL delay_1ms
+                  CALL delay_1ms
+                  CALL read_pressure              ;data in D1_msb, D1_lsb
+                  CALL read_temperature           ;data in D2_msb, D2_lsb
+                  CALL IIC_XCLR_LOW
+                  ;
+   send_pressure: FETCH s9, D1_msb
+                  OUTPUT s9, D1_msb_port
+                  FETCH s8, D1_lsb
+                  OUTPUT s8, D1_lsb_port
+                  ;
+                  ;
+send_temperature: FETCH s9, D2_msb
+                  OUTPUT s9, D2_msb_port
+                  FETCH s8, D2_lsb
+                  OUTPUT s8, D2_lsb_port
+                  RETURN
+                  ;
+                  ;
+  send_constants: FETCH s0, C1_msb
+                  OUTPUT s0, C1_msb_port
+                  FETCH s0, C1_lsb
+                  OUTPUT s0, C1_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C2_msb
+                  OUTPUT s0, C2_msb_port
+                  FETCH s0, C2_lsb
+                  OUTPUT s0, C2_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C3_msb
+                  OUTPUT s0, C3_msb_port
+                  FETCH s0, C3_lsb
+                  OUTPUT s0, C3_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C4_msb
+                  OUTPUT s0, C4_msb_port
+                  FETCH s0, C4_lsb
+                  OUTPUT s0, C4_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C5_msb
+                  OUTPUT s0, C5_msb_port
+                  FETCH s0, C5_lsb
+                  OUTPUT s0, C5_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C6_msb
+                  OUTPUT s0, C6_msb_port
+                  FETCH s0, C6_lsb
+                  OUTPUT s0, C6_lsb_port
+                  ;
+                  ;
+                  FETCH s0, C7_msb
+                  OUTPUT s0, C7_msb_port
+                  FETCH s0, C7_lsb
+                  OUTPUT s0, C7_lsb_port
+                  ;
+                  ;
+                  FETCH s0, A_A
+                  OUTPUT s0, A_port
+                  ;
+                  ;
+                  FETCH s0, B_B
+                  OUTPUT s0, B_port
+                  ;
+                  ;
+                  FETCH s0, C_C
+                  OUTPUT s0, C_port
+                  ;
+                  ;
+                  FETCH s0, D_D
+                  OUTPUT s0, D_port
+                  ;
+                  ;
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: Read_pressure
+                  ;  Function: read pressure value from HP03
+                  ;               Store result in D1_msb and D1_lsb registers
+                  ;     Output register: D1_msb, D1_lsb
+                  ;     Temp register: s0
+                  ;*******************************************************************
+                  ;
+   read_pressure: CALL IIC_Start                  ;perform start condition
+                  LOAD s0, AD_addr_EE             ;write EE address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_FF             ;write FF address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_F0             ;write F0 address
+                  CALL IIC_WriteByte
+                  CALL IIC_Stop
+                  CALL delay_20ms                 ;
+                  CALL delay_20ms
+                  CALL IIC_Start
+                  LOAD s0, AD_addr_EE             ;write EE address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_FD             ;write FD address
+                  CALL IIC_WriteByte
+                  CALL IIC_Start
+                  LOAD s0, AD_addr_EF             ;write EF address
+                  CALL IIC_WriteByte
+                  CALL IIC_ReadByte               ;read pressure MSB
+                  STORE s0, D1_msb                ;save MSB in D1_msb register
+                  CALL IIC_ACK
+                  CALL IIC_ReadByte               ;read pressure LSB
+                  STORE s0, D1_lsb                ;save LSB in D1_lsb register
+                  CALL IIC_NoACK
+                  CALL IIC_Stop
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: Read_temperature
+                  ;  Function: read pressure value from HP03
+                  ;               Store result in D2_msb and D2_lsb registers
+                  ;     Output register: D2_msb, D2_lsb
+                  ;     Temp register: s0
+                  ;*******************************************************************
+                  ;
+read_temperature: CALL IIC_Start                  ;perform start condition
+                  LOAD s0, AD_addr_EE             ;write EE address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_FF             ;write FF address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_E8             ;write E8 address
+                  CALL IIC_WriteByte
+                  CALL IIC_Stop
+                  CALL delay_20ms                 ;
+                  CALL delay_20ms                 ;
+                  CALL IIC_Start
+                  LOAD s0, AD_addr_EE             ;write EE address
+                  CALL IIC_WriteByte
+                  LOAD s0, AD_addr_FD             ;write FD address
+                  CALL IIC_WriteByte
+                  CALL IIC_Start
+                  LOAD s0, AD_addr_EF             ;write EF address
+                  CALL IIC_WriteByte
+                  CALL IIC_ReadByte               ;read temperature MSB
+                  STORE s0, D2_msb                ;save MSB in D2_msb register
+                  CALL IIC_ACK
+                  CALL IIC_ReadByte               ;read temperature LSB
+                  STORE s0, D2_lsb                ;save LSB in D2_lsb register
+                  CALL IIC_NoACK
+                  CALL IIC_Stop
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_ReadByte
+                  ;    function: Read a byte from iic chips
+                  ;    output register: s0
+                  ;
+                  ;    temp register:  s2, s3
+                  ;*******************************************************************
+                  ;
+    IIC_ReadByte: CALL IIC_SDA_HIGH               ;set SDA
+                  CALL delay_10us                 ;wait 10 us
+                  LOAD s3, 08                     ;load index for 8 bits
+   IIC_Read_Next: INPUT s2, IIC_in_port
+                  TEST s2, SDA_wire               ;test SDA state, status -> carry
+                  SLA s0                          ;Carry shifted into LSBit
+                  CALL IIC_SCL_LOW                ;
+                  CALL delay_10us                 ;wait 10 us
+                  CALL IIC_SCL_HIGH               ;
+                  CALL delay_10us                 ;wait 10 us
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  SUB s3, 01
+                  JUMP NZ, IIC_Read_Next
+                  RETURN
+                  ;
+                  ;
+                  ;************************************************************************
+                  ;Routine: IIC_WriteByte
+                  ;    function: write a byte to iic chips
+                  ;    input register: s0
+                  ;
+                  ;    temp register:  s2
+                  ;*******************************************************************
+   IIC_WriteByte: LOAD s2, 08                     ;initialize loop index to 8
+                  ;
+  IIC_Write_Next: CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  SL0 s0                          ; Move data bit -> carry
+                  JUMP C, IIC_Send1               ; Jump if bit high
+                  ;
+       IIC_Send0: CALL IIC_SDA_LOW                ; Set to output, data low so SDA = 0
+                  CALL delay_10us                 ; reflect in output
+                  JUMP I2C_Sx                     ; Jump over next instruction
+                  ;
+       IIC_Send1: CALL IIC_SDA_HIGH               ; Set to input, SDA = 1 due to pull-up
+                  CALL delay_10us                 ; reflect in output
+                  ;
+          I2C_Sx: CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  SUB s2, 01                      ; Decrement I2C bit counter
+                  JUMP NZ, IIC_Write_Next         ; Loop until 8 bits are sent
+                  ;
+                  CALL IIC_SDA_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_Start
+                  ;    function: perform a start condition
+                  ;*******************************************************************
+       IIC_Start: CALL IIC_SDA_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SDA_LOW
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_Stop
+                  ;    function: perform a stop condition
+                  ;*******************************************************************
+        IIC_Stop: CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  CALL IIC_SDA_LOW
+                  CALL delay_10us
+                  CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SDA_HIGH
+                  CALL delay_10us
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_ACK
+                  ;    function: perform an ack condition
+                  ;*******************************************************************
+         IIC_ACK: CALL IIC_SDA_LOW
+                  CALL delay_10us
+                  CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_NoACK
+                  ;    function: perform an nack condition
+                  ;*******************************************************************
+       IIC_NoACK: CALL IIC_SDA_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_HIGH
+                  CALL delay_10us
+                  CALL IIC_SCL_LOW
+                  CALL delay_10us
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_SDA_HIGH
+                  ;    function: set SDA
+                  ;    input register: IIC_control_status
+                  ;    output register: IIC_port
+                  ;
+                  ;    temp register: s1
+                  ;*******************************************************************
+    IIC_SDA_HIGH: FETCH s1, IIC_control_status    ;read control status bits
+                  OR s1, SDA_wire                 ;set SDA pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_SDA_LOW
+                  ;    function: clear SDA
+                  ;    input register: IIC_control_status
+                  ;    output register: IIC_out_port
+                  ;
+                  ;    temp register: s1
+                  ;*******************************************************************
+     IIC_SDA_LOW: FETCH s1, IIC_control_status    ;read control status bits
+                  AND s1, CLR_SDA_MASK            ;clear SDA pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_SCL_HIGH
+                  ;    function: set SCL
+                  ;    input register: s0
+                  ;    output register:
+                  ;
+                  ;    temp register:  i
+                  ;*******************************************************************
+    IIC_SCL_HIGH: FETCH s1, IIC_control_status    ;read control status bits
+                  OR s1, SCL_wire                 ;set SCL pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_SCL_LOW
+                  ;    function: set SDA
+                  ;    temp register:  s1
+                  ;*******************************************************************
+     IIC_SCL_LOW: FETCH s1, IIC_control_status    ;read control status bits
+                  AND s1, CLR_SCL_MASK            ;clear SCL pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_XCLR_HIGH
+                  ;    function: set XCLR
+                  ;    input register: s0
+                  ;    output register:
+                  ;
+                  ;    temp register:  i
+                  ;*******************************************************************
+   IIC_XCLR_HIGH: FETCH s1, IIC_control_status    ;read control status bits
+                  OR s1, XCLR                     ;set XCLR pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;*******************************************************************
+                  ;Routine: IIC_XCLR_LOW
+                  ;    function: clear XCLR
+                  ;    input register: s0
+                  ;    output register:
+                  ;
+                  ;    temp register:  i
+                  ;*******************************************************************
+    IIC_XCLR_LOW: FETCH s1, IIC_control_status    ;read control status bits
+                  AND s1, CLR_XCLR_MASK           ;clear SCL pin
+                  OUTPUT s1, IIC_out_port
+                  STORE s1, IIC_control_status    ;preserve status
+                  RETURN
+                  ;
+                  ;
+                  ;**************************************************************************************
+                  ; Software delay Routines
+                  ;**************************************************************************************
+                  ;
+                  ; Delay of 1us.
+                  ;
+                  ; Constant value defines reflects the clock applied to KCPSM3. Every instruction
+                  ; executes in 2 clock cycles making the calculation highly predictable. The '6' in
+                  ; the following equation even allows for 'CALL delay_1us' instruction in the initiating code.
+                  ;
+                  ; delay_1us_constant =  (clock_rate - 6)/4       Where 'clock_rate' is in MHz
+                  ;
+                  ; Register used sA
+                  ;
+       delay_1us: LOAD sA, delay_1us_constant
+        wait_1us: SUB sA, 01
+                  JUMP NZ, wait_1us
+                  RETURN
+                  ;
+                  ; Delay of 10 us
+                  ;
+                  ; Registers used sA, sB
+                  ;
+      delay_10us: LOAD sB, 0A                     ;10 x 1us = 10us
+       wait_10us: CALL delay_1us
+                  SUB sB, 01
+                  JUMP NZ, wait_10us
+                  RETURN
+                  ;
+                  ; Delay of 40us.
+                  ;
+                  ; Registers used sA, sB
+                  ;
+      delay_40us: LOAD sB, 28                     ;40 x 1us = 40us
+       wait_40us: CALL delay_1us
+                  SUB sB, 01
+                  JUMP NZ, wait_40us
+                  RETURN
+                  ;
+                  ;
+                  ; Delay of 1ms.
+                  ;
+                  ; Registers used sA, sB, sC
+                  ;
+       delay_1ms: LOAD sC, 19                     ;25 x 40us = 1ms
+        wait_1ms: CALL delay_40us
+                  SUB sC, 01
+                  JUMP NZ, wait_1ms
+                  RETURN
+                  ;
+                  ; Delay of 20ms.
+                  ;
+                  ; Registers used sA, sB, sC, sD
+                  ;
+      delay_20ms: LOAD sD, 14                     ;20 x 1ms = 20ms
+       wait_20ms: CALL delay_1ms
+                  SUB sD, 01
+                  JUMP NZ, wait_20ms
+                  RETURN
+                  ;
+                  ; Delay of approximately 1 second.
+                  ;
+                  ; Registers used sA, sB, sC, sD, sE
+                  ;
+        delay_1s: LOAD sE, 14                     ;50 x 20ms = 1000ms
+         wait_1s: CALL delay_20ms
+                  SUB sE, 01
+                  JUMP NZ, wait_1s
+                  RETURN
+                  ;
+                  ;
+                  ;
+                  ;**************************************************************************************
+                  ; Interrupt Service Routine (ISR)
+                  ;**************************************************************************************
+                  ;
+                  ; Interrupts are not used in this design. This is a place keeper only.
+                  ;
+                  ADDRESS 3FE
+             ISR: RETURNI ENABLE
+                  ;
+                  ;
+                  ;**************************************************************************************
+                  ; Interrupt Vector
+                  ;**************************************************************************************
+                  ;
+                  ADDRESS 3FF
+                  JUMP ISR
+                  ;
+                  ;

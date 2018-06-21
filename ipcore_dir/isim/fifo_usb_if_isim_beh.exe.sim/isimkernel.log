@@ -1,0 +1,29 @@
+Command line:
+   fifo_usb_if_isim_beh.exe
+     -simmode  gui
+     -simrunnum  0
+     -socket  49568
+
+Tue Sep 14 09:07:55 2010
+
+
+ Elaboration Time: 0.0624 sec
+
+ Current Memory Usage: 497.521 Meg
+
+ Total Signals          : 194
+ Total Nets             : 346
+ Total Signal Drivers   : 79
+ Total Blocks           : 25
+ Total Primitive Blocks : 19
+ Total Processes        : 60
+ Total Traceable Variables  : 126
+ Total Scalar Nets and Variables : 870
+Total Line Count : 254
+
+ Total Simulation Time: 0.0624 sec
+
+ Current Memory Usage: 497.521 Meg
+
+Tue Sep 14 09:08:08 2010
+

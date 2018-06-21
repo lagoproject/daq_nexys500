@@ -1,0 +1,2 @@
+SETPROJECT "/home/horacio/work/lago/lago_fpga_sync_one_fifo/ipcore_dir/coregen.cgp"
+LAUNCHXCO "/home/horacio/work/lago/lago_fpga_sync_one_fifo/ipcore_dir/fifo.xco"

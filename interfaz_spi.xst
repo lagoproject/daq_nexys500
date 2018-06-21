@@ -1,0 +1,5 @@
+set -tmpdir "/home/horacio/work/lago/lago-fpga-vhdl/xst/projnav.tmp"
+set -xsthdpdir "/home/horacio/work/lago/lago-fpga-vhdl/xst"
+elaborate
+-ifn interfaz_spi.prj
+-ifmt mixed

@@ -1,0 +1,183 @@
+#
+#Copyright 2011 - Lab DPR (CAB-CNEA). All rights reserved.
+#
+#Redistribution and use in source and binary forms, with or without 
+#modification, are permitted provided that the following conditions 
+#are met:
+#
+#   1. Redistributions of source code must retain the above 
+#      copyright notice, this list of conditions and the following 
+#      disclaimer.
+#
+#   2. Redistributions in binary form must reproduce the above 
+#      copyright notice, this list of conditions and the following 
+#      disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+#
+#THIS SOFTWARE IS PROVIDED BY LAB DPR ''AS IS'' AND ANY EXPRESS OR IMPLIED
+#WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
+#MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
+#IN NO EVENT SHALL LAB DPR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
+#INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+#(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+#SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+#HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
+#STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
+#IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+#POSSIBILITY OF SUCH DAMAGE.
+#
+#The views and conclusions contained in the software and documentation 
+#are those of the authors and should not be interpreted as representing 
+#official policies, either expressed or implied, of Lab DPR.
+#
+#*****************************************************************************
+
+# Clock pin for Nexys 2 Board
+NET "clk_50m"       LOC = "B8";
+NET "clk_50m"       TNM_NET = clk_50m;
+TIMESPEC TS_clk = PERIOD "clk_50m" 20 ns HIGH 50%;
+
+# USB Interface.
+# CY7C68013A Port A
+NET "U_SLOE"      LOC = "V15" | IOSTANDARD = LVCMOS33 ; # has external pull-up
+NET "U_FIFOAD<0>" LOC = "T14" | IOSTANDARD = LVCMOS33 ;
+NET "U_FIFOAD<1>" LOC = "V13" | IOSTANDARD = LVCMOS33 ;
+NET "U_PKTEND"    LOC = "V12" | IOSTANDARD = LVCMOS33 ; # no external pull-up
+
+# CY7C68013A Port B
+NET "U_FD<0>" LOC = "R14" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<1>" LOC = "R13" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<2>" LOC = "P13" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<3>" LOC = "T12" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<4>" LOC = "N11" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<5>" LOC = "R11" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<6>" LOC = "P10" | IOSTANDARD = LVCMOS33 ;
+NET "U_FD<7>" LOC = "R10" | IOSTANDARD = LVCMOS33 ;
+
+# CY7C68013A Misc
+NET "U_IFCLK" LOC = "T15" | IOSTANDARD = LVCMOS33 | PERIOD = 20.833;
+NET "U_IFCLK" CLOCK_DEDICATED_ROUTE = FALSE; # Xilinx WebPACK version 10+ needs this.
+
+NET "U_FLAGB" LOC = "U14" | IOSTANDARD = LVCMOS33 ;
+NET "U_FLAGC" LOC = "V16" | IOSTANDARD = LVCMOS33 ;
+
+NET "U_SLRD"  LOC =  "N9" | IOSTANDARD = LVCMOS33 ; # has external pull-up
+NET "U_SLWR"  LOC =  "V9" | IOSTANDARD = LVCMOS33 ; # has external pull-up
+
+# 7 segment display
+NET "seg<0>" LOC = "L18"; # Bank = 1, Pin name = IO_L10P_1, Type = I/O, Sch name = CA
+NET "seg<1>" LOC = "F18"; # Bank = 1, Pin name = IO_L19P_1, Type = I/O, Sch name = CB
+NET "seg<2>" LOC = "D17"; # Bank = 1, Pin name = IO_L23P_1/HDC, Type = DUAL, Sch name = CC
+NET "seg<3>" LOC = "D16"; # Bank = 1, Pin name = IO_L23N_1/LDC0, Type = DUAL, Sch name = CD
+NET "seg<4>" LOC = "G14"; # Bank = 1, Pin name = IO_L20P_1, Type = I/O, Sch name = CE
+NET "seg<5>" LOC = "J17"; # Bank = 1, Pin name = IO_L13P_1/A6/RHCLK4/IRDY1, Type = RHCLK/DUAL, Sch name = CF
+NET "seg<6>" LOC = "H14"; # Bank = 1, Pin name = IO_L17P_1, Type = I/O, Sch name = CG
+NET "dp"     LOC = "C17"; # Bank = 1, Pin name = IO_L24N_1/LDC2, Type = DUAL, Sch name = DP
+#
+NET "an<0>" LOC = "F17"; # Bank = 1, Pin name = IO_L19N_1, Type = I/O, Sch name = AN0
+NET "an<1>" LOC = "H17"; # Bank = 1, Pin name = IO_L16N_1/A0, Type = DUAL, Sch name = AN1
+NET "an<2>" LOC = "C18"; # Bank = 1, Pin name = IO_L24P_1/LDC1, Type = DUAL, Sch name = AN2
+NET "an<3>" LOC = "F15"; # Bank = 1, Pin name = IO_L21P_1, Type = I/O, Sch name = AN3
+#
+# Leds
+NET "led<0>"  LOC = "J14"; # Bank = 1, Pin name = IO_L14N_1/A3/RHCLK7, Type = RHCLK/DUAL, Sch name = JD10/LD0
+NET "led<1>"  LOC = "J15"; # Bank = 1, Pin name = IO_L14P_1/A4/RHCLK6, Type = RHCLK/DUAL, Sch name = JD9/LD1
+NET "led<2>"  LOC = "K15"; # Bank = 1, Pin name = IO_L12P_1/A8/RHCLK2, Type = RHCLK/DUAL, Sch name = JD8/LD2
+NET "led<3>"  LOC = "K14"; # Bank = 1, Pin name = IO_L12N_1/A7/RHCLK3/TRDY1, Type = RHCLK/DUAL, Sch name = JD7/LD3
+NET "led<4>"  LOC = "E16";     # Bank = 1, Pin name = N.C., Type = N.C.,                             Sch name = LD4? other than s3e500
+NET "led<5>"  LOC = "P16";     # Bank = 1, Pin name = N.C., Type = N.C.,                             Sch name = LD5? other than s3e500
+NET "led<6>"  LOC = "E4";      # Bank = 3, Pin name = N.C., Type = N.C.,                             Sch name = LD6? other than s3e500
+NET "led<7>"  LOC = "P4";      # Bank = 3, Pin name = N.C., Type = N.C.,                             Sch name = LD7? other than s3e500
+#NET "led<4>"  LOC = "E17"; # Bank = 1, Pin name = IO, Type = I/O, Sch name = LD4? s3e500 only
+#NET "led<5>"  LOC = "P15"; # Bank = 1, Pin name = IO, Type = I/O, Sch name = LD5? s3e500 only
+#NET "led<6>"  LOC = "F4";  # Bank = 3, Pin name = IO, Type = I/O, Sch name = LD6? s3e500 only
+#NET "led<7>"  LOC = "R4";  # Bank = 3, Pin name = IO/VREF_3, Type = VREF, Sch name = LD7? s3e500 only
+
+# Leds
+#NET "led<0>"  	LOC = "J14"; # Bank = 1, Pin name = IO_L14N_1/A3/RHCLK7, Type = RHCLK/DUAL, Sch name = JD10/LD0
+#NET "led<1>"  	LOC = "J15"; # Bank = 1, Pin name = IO_L14P_1/A4/RHCLK6, Type = RHCLK/DUAL, Sch name = JD9/LD1
+#NET "led<2>"  	LOC = "K15"; # Bank = 1, Pin name = IO_L12P_1/A8/RHCLK2, Type = RHCLK/DUAL, Sch name = JD8/LD2
+#NET "led<3>"  	LOC = "K14"; # Bank = 1, Pin name = IO_L12N_1/A7/RHCLK3/TRDY1, Type = RHCLK/DUAL, Sch name = JD7/LD3
+#NET "led<4>"  	LOC = "R4" ; # Bank = 3, Pin name = IO/VREF_3, Type = VREF, Sch name = LD7? s3e500 only
+#NET "led<5>"  	LOC = "F4";  # Bank = 3, Pin name = IO, Type = I/O, Sch name = LD6? s3e500 only
+#NET "led<6>"  	LOC = "E17";  # Bank = 3, Pin name = IO, Type = I/O, Sch name = LD6? s3e500 only
+
+#PWM Signals
+NET "hv2" 		LOC = "A16"; # Bank = 0, Pin name = IO_L01N_0, Type = I/O, Sch name = R-IO39
+NET "hv3" 		LOC = "B16"; # Bank = 0, Pin name = IO_L01P_0, Type = I/O, Sch name = R-IO40
+
+# Buttons
+NET "reset" 	LOC = "B18"; # Bank = 1, Pin name = IP, Type = INPUT, Sch name = BTN0
+
+# FX2 connector ch1
+NET "adc_clk1"  LOC = "B4";  
+NET "ch1<9>"  	LOC = "A4";  
+NET "ch1<8>"  	LOC = "C3";  
+NET "ch1<7>"  	LOC = "C4";  
+NET "ch1<6>"  	LOC = "B6";  
+NET "ch1<5>"  	LOC = "D5";  
+NET "ch1<4>"  	LOC = "C5";  
+NET "ch1<3>"  	LOC = "F7";  
+NET "ch1<2>"  	LOC = "E7";  
+NET "ch1<1>"  	LOC = "A6";  
+NET "ch1<0>"  	LOC = "C7";  
+
+# FX2 connector ch2
+NET "adc_clk2" 	LOC = "F8";	
+NET "ch2<9>" 	LOC = "D7";
+NET "ch2<8>" 	LOC = "E8";
+NET "ch2<7>" 	LOC = "E9";
+NET "ch2<6>" 	LOC = "C9";
+NET "ch2<5>" 	LOC = "A8";
+NET "ch2<4>" 	LOC = "G9";
+NET "ch2<3>" 	LOC = "F9";
+NET "ch2<2>" 	LOC = "D10";
+NET "ch2<1>" 	LOC = "A10";
+NET "ch2<0>" 	LOC = "B10";
+
+# FX2 connector ch3
+NET "adc_clk3" 	LOC = "A11";	
+NET "ch3<9>" 	LOC = "D11";
+NET "ch3<8>" 	LOC = "E10";
+NET "ch3<7>" 	LOC = "B11";
+NET "ch3<6>" 	LOC = "C11";
+NET "ch3<5>" 	LOC = "E11";
+NET "ch3<4>" 	LOC = "F11";
+NET "ch3<3>" 	LOC = "E12";
+NET "ch3<2>" 	LOC = "F12";
+NET "ch3<1>" 	LOC = "A13";
+NET "ch3<0>" 	LOC = "B13";
+
+# MAX5501 Interface
+NET "cs_e2prom" LOC = "B14";
+NET "cs_max5501" LOC = "A14";
+NET "spi_dout" 	LOC = "C14";
+NET "spi_sck" 	LOC = "D14";
+
+# HP03 Interface
+# It is in JB 6 pin expansion connector
+NET "pMCLK" 	LOC = "R18"; # Bank = 1, Pin name = IO_L02P_1/A14, Type = DUAL, Sch name = JB2
+NET "pXCLR" 	LOC = "R16"; # Bank = 1, Pin name = IO_L03N_1/VREF_1, Type = VREF, Sch name = JB8
+NET "pSDA" 	LOC = "T18"; # Bank = 1, Pin name = IO_L02N_1/A13, Type = DUAL, Sch name = JB9
+NET "pSCL"  	LOC = "U18"; # Bank = 1, Pin name = IO_L01P_1/A16, Type = DUAL, Sch name = JB10
+
+# GPS Interface
+# It is in JC 6 pin expansion connector
+NET "tx_uart" 	LOC = "G15"; # Bank = 1, Pin name = IO_L18P_1, Type = I/O, Sch name = JC1
+NET "pps_port"	LOC = "G13"; # Bank = 1, Pin name = IO_L20N_1, Type = I/O, Sch name = JC3
+NET "rx_uart" 	LOC = "H16"; # Bank = 1, Pin name = IO_L16P_1, Type = I/O, Sch name = JC4
+
+#Para VHP, esto es para que funcione con el cable que armé, NO con la fuente SWITCHING
+#NET "rx_uart" LOC = "G13"; # Bank = 1, Pin name = IO_L20N_1, Type = I/O, Sch name = JC3
+#NET "pps_port" LOC = "H16"; # Bank = 1, Pin name = IO_L16P_1, Type = I/O, Sch name = JC4
+#NET "tx_uart" LOC = "F14"; # Bank = 1, Pin name = IO_L21N_1, Type = I/O, Sch name = JC8
+
+
+# Switches
+NET "GPSen" LOC = "R17"; # Bank = 1, Pin name = IP, Type = INPUT, Sch name = SW7
+
+#GPS signals extension (for VHP telescope)
+NET "rx_uart_copy" LOC = "J13"; # Bank = 1, Pin name = IO_L15N_1/A1, Type = DUAL, Sch name = JD1
+NET "pps_port_copy" LOC = "M18"; # Bank = 1, Pin name = IO_L08N_1, Type = I/O, Sch name = JD2
+#NET "JD<2>" LOC = "N18"; # Bank = 1, Pin name = IO_L08P_1, Type = I/O, Sch name = JD3
+#NET "JD<3>" LOC = "P18"; # Bank = 1, Pin name = IO_L06N_1, Type = I/O, Sch name = JD4

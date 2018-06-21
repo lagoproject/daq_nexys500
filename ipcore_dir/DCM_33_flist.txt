@@ -1,0 +1,4 @@
+# Output products list for <DCM_33>
+DCM_33_flist.txt
+DCM_33_readme.txt
+DCM_33_xmdf.tcl
